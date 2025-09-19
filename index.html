@@ -1,1 +1,1285 @@
+<!--
+README
+- Run locally by opening index.html in a modern browser with config.js in the same directory.
+- Publish to GitHub Pages by committing index.html, config.js, and links.html, pushing to your main branch, and enabling GitHub Pages for that branch or /docs folder.
+- Configure videos, user codes, SURVEY_TITLE, and GAS_ENDPOINT in config.js; update the values to match your project before sharing the survey.
+- The offline queue stores unsent responses per uid in localStorage, retries automatically on each navigation, when the connection returns, and uses navigator.sendBeacon while closing the tab.
+- Use links.html after configuring userCodes to view and copy all 15 participant survey links (index.html?uid=CODE).
 
+Google Apps Script Web App Example
+function doPost(e) {
+try {
+const body = JSON.parse(e.postData.contents)
+const ss = SpreadsheetApp.openById('PUT_SHEET_ID_HERE')
+let sh = ss.getSheetByName('responses')
+if (!sh) sh = ss.insertSheet('responses')
+const headers = ['timestamp','user_code','video_id','is_ai','quality_rating','user_agent','submission_id']
+if (sh.getLastRow() === 0) sh.appendRow(headers)
+const exists = sh.createTextFinder(body.submission_id).findNext()
+if (exists) {
+return ContentService.createTextOutput(JSON.stringify({ok:true, dup:true})).setMimeType(ContentService.MimeType.JSON)
+}
+sh.appendRow([new Date().toISOString(), body.user_code, body.video_id, body.is_ai, body.quality_rating, body.user_agent, body.submission_id])
+return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON)
+} catch (err) {
+return ContentService.createTextOutput(JSON.stringify({ok:false, error:String(err)})).setMimeType(ContentService.MimeType.JSON)
+}
+}
+Deployment steps: Open the Google Sheet that will store responses, choose Extensions → Apps Script, paste the code above, replace PUT_SHEET_ID_HERE with your sheet ID, deploy it as a Web App with access set to Anyone, copy the Web App URL, and place it in CONFIG.GAS_ENDPOINT inside config.js.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Survey</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #17202a 0%, #0b1118 55%, #05070a 100%);
+      color: #f5f7fa;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 2rem 1rem 3rem;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(18, 24, 32, 0.9);
+      backdrop-filter: blur(8px);
+      border-radius: 16px;
+      padding: 2.5rem 2.25rem;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(90, 120, 150, 0.25);
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 2.2vw + 1rem, 2.6rem);
+      font-weight: 600;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      margin: 0 0 1rem;
+      line-height: 1.6;
+      color: #d9e2ef;
+    }
+
+    .welcome {
+      text-align: center;
+    }
+
+    .logo {
+      width: 140px;
+      height: 140px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #2a84ff, #6b5bff);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+    }
+
+    .logo span {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #f5f7fa;
+      letter-spacing: 0.08em;
+    }
+
+    button {
+      font: inherit;
+      border-radius: 999px;
+      padding: 0.85rem 1.8rem;
+      border: 1px solid rgba(110, 150, 255, 0.35);
+      color: #0b1118;
+      background: linear-gradient(135deg, #6cb5ff, #75ffe5);
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+      min-width: 140px;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(71, 194, 255, 0.35);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      box-shadow: none;
+      transform: none;
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(108, 181, 255, 0.9);
+      outline-offset: 2px;
+    }
+
+    .secondary {
+      background: transparent;
+      color: #e2e9f2;
+      border: 1px solid rgba(132, 153, 188, 0.7);
+    }
+
+    .secondary:hover {
+      box-shadow: 0 10px 24px rgba(132, 153, 188, 0.25);
+    }
+
+    .primary {
+      margin-left: auto;
+    }
+
+    .video-step {
+      display: flex;
+      gap: clamp(1.25rem, 2vw, 2.5rem);
+      align-items: flex-start;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .video-area {
+      flex: 1 1 420px;
+      min-width: 280px;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid rgba(104, 140, 201, 0.35);
+      background: #04070d;
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .questions {
+      flex: 1 1 320px;
+      min-width: 260px;
+      background: rgba(12, 17, 25, 0.85);
+      border-radius: 18px;
+      padding: 1.5rem;
+      border: 1px solid rgba(90, 120, 150, 0.2);
+    }
+
+    fieldset {
+      border: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+    }
+
+    legend {
+      font-size: 1.1rem;
+      margin-bottom: 0.85rem;
+      font-weight: 600;
+      color: #f2f5ff;
+    }
+
+    .option {
+      display: block;
+      margin-bottom: 0.75rem;
+      font-size: 1.05rem;
+      color: #dbe5f3;
+    }
+
+    .option input[type="radio"] {
+      margin-right: 0.65rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: #6cb5ff;
+    }
+
+    .stars-fieldset {
+      margin-bottom: 0.5rem;
+    }
+
+    .stars {
+      display: inline-flex;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .stars input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .stars label {
+      font-size: 2.2rem;
+      color: #2f3845;
+      cursor: pointer;
+      transition: color 0.2s ease, transform 0.2s ease;
+      padding: 0.1rem 0.25rem;
+      border-radius: 0.4rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.2rem;
+    }
+
+    .stars label.active {
+      color: #f6c445;
+    }
+
+    .stars label:hover,
+    .stars label:focus-visible,
+    .stars input[type="radio"]:focus + label {
+      color: #ffe27a;
+      box-shadow: 0 0 0 2px rgba(116, 154, 255, 0.35);
+    }
+
+    .progress {
+      margin-top: 0.5rem;
+      font-size: 1rem;
+      color: #9fb4d4;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2.5rem;
+    }
+
+    .status {
+      margin-top: 1.5rem;
+      min-height: 1.25rem;
+      font-size: 0.95rem;
+      color: #a9bdd6;
+    }
+
+    .status[data-type="error"] {
+      color: #ff9b9b;
+    }
+
+    .status[data-type="success"] {
+      color: #7be0a0;
+    }
+
+    .status[data-type="warning"] {
+      color: #ffcc80;
+    }
+
+    .status.hidden {
+      visibility: hidden;
+    }
+
+    .top-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .top-bar strong {
+      font-weight: 600;
+      color: #c0d3f2;
+    }
+
+    .summary-list {
+      list-style: none;
+      padding: 0;
+      margin: 1.5rem 0 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .summary-list li {
+      background: rgba(12, 17, 25, 0.75);
+      border: 1px solid rgba(90, 120, 150, 0.25);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      color: #d0dcf0;
+    }
+
+    .final-actions {
+      margin-top: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .final-actions .note {
+      font-size: 0.95rem;
+      color: #9fb4d4;
+    }
+
+    .error-view {
+      text-align: center;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .error-view h2 {
+      margin-bottom: 1rem;
+    }
+
+    .debug-panel {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      background: rgba(10, 15, 22, 0.92);
+      border: 1px solid rgba(120, 150, 200, 0.35);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      font-size: 0.9rem;
+      color: #c8d9f1;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+      max-width: 260px;
+      z-index: 50;
+    }
+
+    .debug-panel h3 {
+      font-size: 1rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .debug-panel button {
+      margin-top: 0.8rem;
+      width: 100%;
+      background: rgba(120, 150, 200, 0.2);
+      color: #f5f7fa;
+      border-color: rgba(120, 150, 200, 0.65);
+    }
+
+    .debug-panel button:hover {
+      box-shadow: none;
+      transform: none;
+      background: rgba(120, 150, 200, 0.35);
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 1.5rem 0.75rem 2.5rem;
+      }
+
+      .card {
+        padding: 2rem 1.5rem;
+      }
+
+      .video-step {
+        flex-direction: column;
+      }
+
+      .nav-buttons {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+
+      .primary {
+        margin-left: 0;
+      }
+    }
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div id="app" role="main" aria-live="polite"></div>
+  <script>
+    (function () {
+      'use strict';
+
+      const appEl = document.getElementById('app');
+      const state = {
+        config: null,
+        uid: null,
+        started: false,
+        currentIndex: 0,
+        answers: [],
+        submitted: false,
+        error: null,
+        statusMessage: '',
+        statusType: 'info',
+        debug: false,
+        queueLength: 0
+      };
+
+      const storageKeys = {
+        state: (uid) => `survey_state_${uid}`,
+        queue: (uid) => `survey_queue_${uid}`
+      };
+
+      let dataAdapter = null;
+
+      init();
+
+      function init() {
+        try {
+          state.config = loadConfig();
+        } catch (err) {
+          state.error = err instanceof Error ? err.message : String(err);
+          render();
+          return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        state.debug = params.get('debug') === '1';
+        state.uid = readUid(params);
+
+        if (!state.uid) {
+          state.error = 'MISSING_UID';
+          render();
+          return;
+        }
+
+        if (!state.config.userCodes.includes(state.uid)) {
+          state.error = 'INVALID_UID';
+          render();
+          return;
+        }
+
+        document.title = state.config.SURVEY_TITLE;
+
+        loadStoredState();
+        initRouter();
+        initializeDataAdapter();
+
+        window.addEventListener('online', () => {
+          setStatus('Connection restored. Syncing any pending responses…', 'info');
+          flushQueue();
+        });
+        window.addEventListener('offline', () => {
+          setStatus('You appear to be offline. Your answers will sync once you reconnect.', 'warning');
+        });
+
+        window.addEventListener('pagehide', () => {
+          if (dataAdapter) {
+            dataAdapter.flushQueueWithBeacon();
+          }
+        });
+        window.addEventListener('beforeunload', () => {
+          if (dataAdapter) {
+            dataAdapter.flushQueueWithBeacon();
+          }
+        });
+
+        render();
+        flushQueue();
+      }
+
+      function loadConfig() {
+        const conf = window.CONFIG;
+        if (!conf || typeof conf !== 'object') {
+          throw new Error('Configuration is missing. Please add config.js with a CONFIG object.');
+        }
+        const { videos, userCodes, GAS_ENDPOINT, SURVEY_TITLE } = conf;
+        if (!Array.isArray(videos) || videos.length !== 10 || !videos.every((v) => typeof v === 'string' && v.trim().length > 0)) {
+          throw new Error('CONFIG.videos must be an array of 10 video URLs.');
+        }
+        if (!Array.isArray(userCodes) || userCodes.length !== 15 || !userCodes.every((code) => typeof code === 'string' && code.trim().length > 0)) {
+          throw new Error('CONFIG.userCodes must be an array of 15 access codes.');
+        }
+        if (typeof GAS_ENDPOINT !== 'string' || !GAS_ENDPOINT.trim()) {
+          throw new Error('CONFIG.GAS_ENDPOINT is required.');
+        }
+        if (typeof SURVEY_TITLE !== 'string' || !SURVEY_TITLE.trim()) {
+          throw new Error('CONFIG.SURVEY_TITLE is required.');
+        }
+        return conf;
+      }
+
+      function initRouter() {
+        window.addEventListener('popstate', () => {
+          render();
+        });
+        history.replaceState({ index: state.currentIndex, started: state.started }, document.title);
+      }
+
+      function initializeDataAdapter() {
+        dataAdapter = createDataAdapter(state.uid);
+        dataAdapter.setOnSent((record) => {
+          markRecordSent(record.submission_id);
+        });
+        dataAdapter.setOnError((message) => {
+          setStatus(message, 'error');
+        });
+        dataAdapter.onQueueChange((queue) => {
+          handleQueueChange(queue);
+        });
+        state.queueLength = dataAdapter.getQueue().length;
+      }
+
+      function readUid(params) {
+        if (!(params instanceof URLSearchParams)) {
+          params = new URLSearchParams(window.location.search);
+        }
+        const uid = params.get('uid');
+        if (!uid) {
+          return null;
+        }
+        return uid.trim();
+      }
+
+      function loadStoredState() {
+        const raw = localStorage.getItem(storageKeys.state(state.uid));
+        if (!raw) {
+          return;
+        }
+        try {
+          const saved = JSON.parse(raw);
+          if (saved && typeof saved === 'object') {
+            state.started = Boolean(saved.started);
+            const maxIndex = state.config.videos.length;
+            state.currentIndex = typeof saved.currentIndex === 'number' && saved.currentIndex >= 0 ? Math.min(saved.currentIndex, maxIndex) : 0;
+            state.submitted = Boolean(saved.submitted);
+            if (Array.isArray(saved.answers)) {
+              state.answers = saved.answers.map((item) => normalizeAnswer(item));
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load stored state', err);
+        }
+      }
+
+      function normalizeAnswer(value) {
+        if (!value || typeof value !== 'object') {
+          return {};
+        }
+        const normalized = {
+          is_ai: value.is_ai === 'yes' || value.is_ai === 'no' ? value.is_ai : undefined,
+          quality: typeof value.quality === 'number' ? value.quality : undefined,
+          posted: Boolean(value.posted),
+          submissionId: typeof value.submissionId === 'string' ? value.submissionId : undefined
+        };
+        return normalized;
+      }
+
+      function persistState() {
+        if (!state.uid) {
+          return;
+        }
+        const payload = {
+          started: state.started,
+          currentIndex: state.currentIndex,
+          answers: state.answers,
+          submitted: state.submitted
+        };
+        try {
+          localStorage.setItem(storageKeys.state(state.uid), JSON.stringify(payload));
+        } catch (err) {
+          console.warn('Unable to persist state', err);
+        }
+      }
+
+      function getRoute() {
+        if (state.error) {
+          return 'error';
+        }
+        if (!state.started) {
+          return 'welcome';
+        }
+        if (state.currentIndex >= state.config.videos.length) {
+          return 'final';
+        }
+        return 'step';
+      }
+
+      function render() {
+        const route = getRoute();
+        if (route === 'error') {
+          renderError();
+        } else if (route === 'welcome') {
+          renderWelcome();
+        } else if (route === 'final') {
+          renderFinal();
+        } else {
+          renderStep(state.currentIndex);
+        }
+        renderDebugPanel();
+        renderStatus();
+        history.replaceState({ index: state.currentIndex, started: state.started }, document.title);
+      }
+
+      function renderError() {
+        let title = 'Configuration error';
+        let description = 'Please contact the organizer for assistance.';
+        if (state.error === 'MISSING_UID') {
+          title = 'Code required';
+          description = 'This link is missing your participant code. Please use the personalized survey link you received or contact the organizer.';
+        } else if (state.error === 'INVALID_UID') {
+          title = 'Invalid code';
+          description = 'The supplied participant code is not recognized. Double-check the link or contact the organizer for help.';
+        } else if (typeof state.error === 'string') {
+          description = state.error;
+        }
+        appEl.innerHTML = `
+          <section class="card error-view" aria-labelledby="error-title">
+            <h1 id="error-title">${escapeHtml(title)}</h1>
+            <p>${escapeHtml(description)}</p>
+            <p>If this problem persists, reach out to your study coordinator.</p>
+          </section>
+        `;
+      }
+
+      function renderWelcome() {
+        appEl.innerHTML = `
+          <section class="card welcome" aria-labelledby="welcome-title">
+            <div class="logo" aria-hidden="true"><span>MFE</span></div>
+            <h1 id="welcome-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
+            <p>Thank you for helping us evaluate AI-dubbed videos. You will review ${state.config.videos.length} clips and answer two quick questions for each one.</p>
+            <p>Your progress is saved locally under your code <strong>${escapeHtml(state.uid)}</strong>, so you can close and return to resume anytime.</p>
+            <button type="button" id="start-btn">Start</button>
+            <div class="status" data-role="status" aria-live="polite"></div>
+          </section>
+        `;
+        const startBtn = document.getElementById('start-btn');
+        startBtn.addEventListener('click', () => {
+          state.started = true;
+          if (state.currentIndex >= state.config.videos.length) {
+            state.currentIndex = 0;
+          }
+          persistState();
+          render();
+        });
+      }
+
+      function renderStep(index) {
+        const answer = state.answers[index] || {};
+        const total = state.config.videos.length;
+        const isAi = answer.is_ai;
+        const quality = typeof answer.quality === 'number' ? answer.quality : 0;
+        const videoUrl = state.config.videos[index];
+        appEl.innerHTML = `
+          <section class="card" aria-labelledby="step-title">
+            <header class="top-bar">
+              <h1 id="step-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
+              <p class="progress">Video ${index + 1}/${total}</p>
+            </header>
+            <div class="video-step">
+              <div class="video-area">
+                <video controls preload="metadata">
+                  <source src="${escapeAttribute(videoUrl)}" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+              <form class="questions" id="step-form">
+                <fieldset>
+                  <legend>Is this video AI generated?</legend>
+                  <label class="option">
+                    <input type="radio" name="is-ai" value="yes" ${isAi === 'yes' ? 'checked' : ''}>
+                    Yes
+                  </label>
+                  <label class="option">
+                    <input type="radio" name="is-ai" value="no" ${isAi === 'no' ? 'checked' : ''}>
+                    No
+                  </label>
+                </fieldset>
+                <fieldset class="stars-fieldset">
+                  <legend>Rate the quality</legend>
+                  <div class="stars" role="radiogroup" aria-label="Quality rating from one to five stars">
+                    ${[1, 2, 3, 4, 5].map((value) => `
+                      <div class="star-wrapper">
+                        <input type="radio" id="quality-${value}" name="quality" value="${value}" ${quality === value ? 'checked' : ''}>
+                        <label for="quality-${value}" data-value="${value}" aria-label="${value} star${value > 1 ? 's' : ''}">★</label>
+                      </div>
+                    `).join('')}
+                  </div>
+                </fieldset>
+              </form>
+            </div>
+            <div class="nav-buttons">
+              <button type="button" class="secondary" data-action="back">Back</button>
+              <button type="button" class="primary" data-action="next" disabled>Next</button>
+            </div>
+            <div class="status" data-role="status" aria-live="polite"></div>
+          </section>
+        `;
+        setupStepListeners(index, quality);
+      }
+
+      function setupStepListeners(index, quality) {
+        const form = document.getElementById('step-form');
+        const nextBtn = appEl.querySelector('[data-action="next"]');
+        const backBtn = appEl.querySelector('[data-action="back"]');
+        const starsContainer = form.querySelector('.stars');
+        const qualityInputs = Array.from(form.querySelectorAll('input[name="quality"]'));
+        const aiInputs = Array.from(form.querySelectorAll('input[name="is-ai"]'));
+
+        paintStars(starsContainer, quality);
+
+        function updateNextState() {
+          const answer = state.answers[index] || {};
+          const aiAnswered = answer.is_ai === 'yes' || answer.is_ai === 'no';
+          const qualityAnswered = typeof answer.quality === 'number' && answer.quality >= 1 && answer.quality <= 5;
+          nextBtn.disabled = !(aiAnswered && qualityAnswered);
+        }
+
+        aiInputs.forEach((input) => {
+          input.addEventListener('change', (event) => {
+            saveAnswer(index, { is_ai: event.target.value });
+            updateNextState();
+          });
+          input.addEventListener('keydown', handleRadioNavigation);
+        });
+
+        qualityInputs.forEach((input) => {
+          input.addEventListener('change', (event) => {
+            const value = Number(event.target.value);
+            paintStars(starsContainer, value);
+            saveAnswer(index, { quality: value });
+            updateNextState();
+          });
+          input.addEventListener('keydown', (event) => handleStarKeydown(event, qualityInputs));
+        });
+
+        starsContainer.addEventListener('keydown', (event) => handleStarKeydown(event, qualityInputs));
+
+        backBtn.addEventListener('click', () => {
+          if (index === 0) {
+            state.started = false;
+            persistState();
+            render();
+            return;
+          }
+          state.currentIndex = Math.max(0, index - 1);
+          persistState();
+          render();
+        });
+
+        nextBtn.addEventListener('click', async () => {
+          const answer = state.answers[index] || {};
+          if (!isAnswerComplete(answer)) {
+            setStatus('Please answer both questions before continuing.', 'error');
+            updateNextState();
+            return;
+          }
+          nextBtn.disabled = true;
+          nextBtn.textContent = 'Saving…';
+          const record = buildRecord(index, answer);
+          const result = await postRecord(record);
+          if (!result.ok) {
+            setStatus('Your response is saved locally and will sync when possible.', 'warning');
+          }
+          state.currentIndex = index + 1;
+          state.started = true;
+          persistState();
+          render();
+          flushQueue();
+        });
+
+        updateNextState();
+      }
+
+      function isAnswerComplete(answer) {
+        if (!answer) {
+          return false;
+        }
+        const aiAnswered = answer.is_ai === 'yes' || answer.is_ai === 'no';
+        const qualityAnswered = typeof answer.quality === 'number' && answer.quality >= 1 && answer.quality <= 5;
+        return aiAnswered && qualityAnswered;
+      }
+
+      function renderFinal() {
+        const total = state.config.videos.length;
+        const pending = state.queueLength;
+        const allSent = allAnswersPosted();
+        const readyToSubmit = pending === 0 && allSent;
+        const answersComplete = state.answers.filter((a) => isAnswerComplete(a)).length === total;
+        const noteText = state.submitted
+          ? 'All responses were submitted successfully.'
+          : readyToSubmit
+            ? 'All responses are synced. Submit to finalize.'
+            : 'Please keep this page open until all responses finish syncing.';
+        appEl.innerHTML = `
+          <section class="card" aria-labelledby="final-title">
+            <h1 id="final-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
+            <p>Great work! You have reviewed all ${total} videos.</p>
+            <p>Participant code: <strong>${escapeHtml(state.uid)}</strong></p>
+            <ul class="summary-list" aria-label="Progress summary">
+              <li>Videos answered: ${answersComplete}/${total}</li>
+              <li>Responses waiting to sync: ${pending}</li>
+            </ul>
+            <div class="final-actions">
+              <button type="button" class="primary" id="submit-btn" ${readyToSubmit && !state.submitted ? '' : 'disabled'}>${state.submitted ? 'Submitted' : 'Submit'}</button>
+              <span class="note">${noteText}</span>
+            </div>
+            <div class="status" data-role="status" aria-live="polite"></div>
+            ${state.submitted ? '<p class="status" data-type="success">Success! Your responses were submitted. You may close this tab.</p>' : ''}
+          </section>
+        `;
+
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) {
+          submitBtn.addEventListener('click', async () => {
+            if (state.submitted) {
+              return;
+            }
+            if (state.queueLength > 0 || !allAnswersPosted()) {
+              setStatus('We are still syncing your responses. Please wait until the queue is empty.', 'warning');
+              renderFinal();
+              return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting…';
+            const success = await flushQueue();
+            if (success && allAnswersPosted()) {
+              state.submitted = true;
+              persistState();
+              setStatus('Success! Your responses were submitted. Thank you!', 'success');
+            } else {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Submit';
+              setStatus('We could not confirm the submission. Please check your connection and try again.', 'error');
+            }
+            renderFinal();
+          });
+        }
+      }
+
+      function saveAnswer(index, partial) {
+        const current = state.answers[index] ? { ...state.answers[index] } : {};
+        let changed = false;
+        if (Object.prototype.hasOwnProperty.call(partial, 'is_ai')) {
+          if (current.is_ai !== partial.is_ai) {
+            changed = true;
+          }
+          current.is_ai = partial.is_ai;
+        }
+        if (Object.prototype.hasOwnProperty.call(partial, 'quality')) {
+          if (current.quality !== partial.quality) {
+            changed = true;
+          }
+          current.quality = partial.quality;
+        }
+        if (changed) {
+          if (current.submissionId && dataAdapter) {
+            dataAdapter.discard(current.submissionId);
+          }
+          delete current.submissionId;
+          current.posted = false;
+        }
+        state.answers[index] = current;
+        persistState();
+      }
+
+      function buildRecord(index, answer) {
+        const videoId = makeVideoId(index);
+        const submissionId = makeSubmissionId(state.uid, videoId, answer);
+        const timestamp = new Date().toISOString();
+        const record = {
+          user_code: state.uid,
+          video_id: videoId,
+          is_ai: answer.is_ai,
+          quality_rating: answer.quality,
+          timestamp,
+          user_agent: navigator.userAgent,
+          submission_id: submissionId
+        };
+        answer.submissionId = submissionId;
+        answer.posted = false;
+        state.answers[index] = answer;
+        persistState();
+        return record;
+      }
+
+      function postRecord(record) {
+        if (!dataAdapter) {
+          return Promise.resolve({ ok: false, error: 'Data adapter unavailable.' });
+        }
+        return dataAdapter.postRecord(record).then((response) => {
+          if (response.ok) {
+            setStatus('Response synced.', 'success');
+          }
+          return response;
+        });
+      }
+
+      function flushQueue() {
+        if (!dataAdapter) {
+          return Promise.resolve(false);
+        }
+        return dataAdapter.flushQueue().then((allSent) => {
+          if (allSent && state.queueLength === 0 && allAnswersPosted()) {
+            setStatus('All responses are synced.', 'success');
+          }
+          return allSent;
+        });
+      }
+
+      function handleQueueChange(queue) {
+        state.queueLength = queue.length;
+        if (getRoute() === 'final') {
+          renderFinal();
+        }
+        renderDebugPanel();
+      }
+
+      function markRecordSent(submissionId) {
+        if (!submissionId) {
+          return;
+        }
+        let updated = false;
+        state.answers = state.answers.map((answer) => {
+          if (answer && answer.submissionId === submissionId) {
+            updated = true;
+            return { ...answer, posted: true };
+          }
+          return answer;
+        });
+        if (updated) {
+          persistState();
+          if (state.queueLength === 0 && allAnswersPosted()) {
+            setStatus('All responses are synced.', 'success');
+          }
+        }
+      }
+
+      function allAnswersPosted() {
+        const total = state.config.videos.length;
+        for (let i = 0; i < total; i += 1) {
+          const answer = state.answers[i];
+          if (!answer || !answer.posted) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      function renderStatus() {
+        const statusEl = document.querySelector('[data-role="status"]');
+        if (!statusEl) {
+          return;
+        }
+        if (!state.statusMessage) {
+          statusEl.textContent = '';
+          statusEl.classList.add('hidden');
+        } else {
+          statusEl.textContent = state.statusMessage;
+          statusEl.classList.remove('hidden');
+        }
+        statusEl.setAttribute('data-type', state.statusType || 'info');
+      }
+
+      function setStatus(message, type) {
+        state.statusMessage = message || '';
+        state.statusType = type || 'info';
+        renderStatus();
+      }
+
+      function renderDebugPanel() {
+        const existing = document.getElementById('debug-panel');
+        if (!state.debug) {
+          if (existing) {
+            existing.remove();
+          }
+          return;
+        }
+        let panel = existing;
+        if (!panel) {
+          panel = document.createElement('aside');
+          panel.id = 'debug-panel';
+          panel.className = 'debug-panel';
+          document.body.appendChild(panel);
+        }
+        const total = state.config ? state.config.videos.length : 0;
+        panel.innerHTML = `
+          <h3>Debug info</h3>
+          <p><strong>UID:</strong> ${escapeHtml(state.uid || 'n/a')}</p>
+          <p><strong>Index:</strong> ${state.currentIndex}/${total}</p>
+          <p><strong>Queue:</strong> ${state.queueLength}</p>
+          <button type="button" id="clear-debug">Clear local data</button>
+        `;
+        const clearBtn = document.getElementById('clear-debug');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            if (!state.uid) {
+              return;
+            }
+            localStorage.removeItem(storageKeys.state(state.uid));
+            localStorage.removeItem(storageKeys.queue(state.uid));
+            window.location.reload();
+          });
+        }
+      }
+
+      function makeVideoId(index) {
+        const number = String(index + 1).padStart(2, '0');
+        return `video-${number}`;
+      }
+
+      function makeSubmissionId(uid, videoId, answer) {
+        const payload = `${uid}::${videoId}::${answer.is_ai}::${answer.quality}`;
+        const hash = hashString(payload);
+        return `${uid}-${videoId}-${hash}`;
+      }
+
+      function hashString(value) {
+        let hash = 0;
+        for (let i = 0; i < value.length; i += 1) {
+          hash = (hash << 5) - hash + value.charCodeAt(i);
+          hash |= 0;
+        }
+        return Math.abs(hash).toString(16);
+      }
+
+      function escapeHtml(str) {
+        if (typeof str !== 'string') {
+          return '';
+        }
+        return str.replace(/[&<>"']/g, (char) => {
+          switch (char) {
+            case '&':
+              return '&amp;';
+            case '<':
+              return '&lt;';
+            case '>':
+              return '&gt;';
+            case '"':
+              return '&quot;';
+            case '\'':
+              return '&#39;';
+            default:
+              return char;
+          }
+        });
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(String(value));
+      }
+
+      function paintStars(container, value) {
+        if (!container) {
+          return;
+        }
+        const labels = Array.from(container.querySelectorAll('label'));
+        labels.forEach((label) => {
+          const starValue = Number(label.dataset.value);
+          if (value && starValue <= value) {
+            label.classList.add('active');
+          } else {
+            label.classList.remove('active');
+          }
+        });
+      }
+
+      function handleStarKeydown(event, inputs) {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+          return;
+        }
+        event.preventDefault();
+        const step = event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1;
+        const list = Array.from(inputs);
+        let index = list.findIndex((input) => input === document.activeElement);
+        if (index === -1) {
+          index = list.findIndex((input) => input.checked);
+        }
+        if (index === -1) {
+          index = 0;
+        }
+        let targetIndex = index + step;
+        targetIndex = Math.min(Math.max(targetIndex, 0), list.length - 1);
+        const target = list[targetIndex];
+        if (target) {
+          target.checked = true;
+          target.focus();
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
+      function handleRadioNavigation(event) {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+          return;
+        }
+        const radios = Array.from(document.querySelectorAll('input[name="is-ai"]'));
+        const currentIndex = radios.findIndex((radio) => radio === event.target);
+        if (currentIndex === -1) {
+          return;
+        }
+        event.preventDefault();
+        const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
+        let nextIndex = currentIndex + step;
+        if (nextIndex < 0) {
+          nextIndex = radios.length - 1;
+        } else if (nextIndex >= radios.length) {
+          nextIndex = 0;
+        }
+        const target = radios[nextIndex];
+        if (target) {
+          target.checked = true;
+          target.focus();
+          target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
+      function createDataAdapter(uid) {
+        const queueKey = storageKeys.queue(uid);
+        let queue = [];
+        const queueListeners = [];
+        let onSent = () => {};
+        let onError = () => {};
+
+        loadQueue();
+
+        function loadQueue() {
+          const raw = localStorage.getItem(queueKey);
+          if (!raw) {
+            queue = [];
+            return;
+          }
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              queue = parsed;
+            } else {
+              queue = [];
+            }
+          } catch (err) {
+            queue = [];
+          }
+        }
+
+        function persistQueue() {
+          try {
+            localStorage.setItem(queueKey, JSON.stringify(queue));
+          } catch (err) {
+            console.warn('Failed to persist queue', err);
+          }
+          notifyQueueChange();
+        }
+
+        function notifyQueueChange() {
+          const snapshot = queue.slice();
+          queueListeners.forEach((listener) => listener(snapshot));
+        }
+
+        async function send(record) {
+          const response = await fetch(CONFIG.GAS_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(record),
+            keepalive: true
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          let payload = {};
+          try {
+            payload = await response.json();
+          } catch (err) {
+            throw new Error('Invalid server response');
+          }
+          if (!payload.ok) {
+            throw new Error(payload.error || 'Server error');
+          }
+          return payload;
+        }
+
+        function enqueue(record) {
+          queue.push(record);
+          persistQueue();
+        }
+
+        return {
+          postRecord: async (record) => {
+            if (!CONFIG || !CONFIG.GAS_ENDPOINT) {
+              onError('The response server is not configured. Please retry later.');
+              enqueue(record);
+              return { ok: false, error: 'Missing GAS endpoint' };
+            }
+            try {
+              const response = await send(record);
+              onSent(record, response);
+              return { ok: true, response };
+            } catch (err) {
+              enqueue(record);
+              onError('Unable to reach the response server. Your answers will sync automatically when the connection is restored.');
+              return { ok: false, error: err instanceof Error ? err.message : String(err) };
+            }
+          },
+          flushQueue: async () => {
+            if (!CONFIG || !CONFIG.GAS_ENDPOINT) {
+              onError('The response server is not configured. Please retry later.');
+              return false;
+            }
+            if (queue.length === 0) {
+              notifyQueueChange();
+              return true;
+            }
+            const remaining = [];
+            let allSent = true;
+            for (const record of queue) {
+              try {
+                const payload = await send(record);
+                onSent(record, payload);
+              } catch (err) {
+                remaining.push(record);
+                allSent = false;
+              }
+            }
+            queue = remaining;
+            persistQueue();
+            if (!allSent) {
+              onError('Some responses are still pending. They will be retried automatically.');
+            }
+            return allSent;
+          },
+          getQueue: () => queue.slice(),
+          onQueueChange: (listener) => {
+            queueListeners.push(listener);
+            listener(queue.slice());
+          },
+          setOnSent: (listener) => {
+            onSent = listener;
+          },
+          setOnError: (listener) => {
+            onError = listener;
+          },
+          discard: (submissionId) => {
+            if (!submissionId) {
+              return;
+            }
+            const initialLength = queue.length;
+            queue = queue.filter((item) => item.submission_id !== submissionId);
+            if (queue.length !== initialLength) {
+              persistQueue();
+            }
+          },
+          flushQueueWithBeacon: () => {
+            if (!CONFIG || !CONFIG.GAS_ENDPOINT || typeof navigator.sendBeacon !== 'function') {
+              return;
+            }
+            queue.forEach((record) => {
+              try {
+                const blob = new Blob([JSON.stringify(record)], { type: 'application/json' });
+                navigator.sendBeacon(CONFIG.GAS_ENDPOINT, blob);
+              } catch (err) {
+                /* ignore beacon failures */
+              }
+            });
+          }
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
