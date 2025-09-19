@@ -509,9 +509,13 @@ Promemoria per la configurazione di Formspree
         if (!conf || typeof conf !== 'object') {
           throw new Error('Configurazione mancante. Aggiungi config.js con un oggetto CONFIG.');
         }
-        const { videos, FORM_ENDPOINT, SURVEY_TITLE } = conf;
-        if (!Array.isArray(videos) || videos.length !== 10 || !videos.every((v) => typeof v === 'string' && v.trim().length > 0)) {
-          throw new Error('CONFIG.videos deve essere un array con 10 URL di video.');
+        const { videos, FORM_ENDPOINT, SURVEY_TITLE, VIDEO_BASE_URL } = conf;
+        if (!Array.isArray(videos) || videos.length !== 10) {
+          throw new Error('CONFIG.videos deve essere un array con 10 elementi.');
+        }
+        const normalizedVideos = normalizeVideos(videos, VIDEO_BASE_URL);
+        if (!normalizedVideos.every((value) => isNonEmptyString(value))) {
+          throw new Error('CONFIG.videos deve contenere URL validi o percorsi di file.');
         }
         if (typeof FORM_ENDPOINT !== 'string' || !FORM_ENDPOINT.trim()) {
           throw new Error('CONFIG.FORM_ENDPOINT è obbligatorio.');
@@ -519,7 +523,10 @@ Promemoria per la configurazione di Formspree
         if (typeof SURVEY_TITLE !== 'string' || !SURVEY_TITLE.trim()) {
           throw new Error('CONFIG.SURVEY_TITLE è obbligatorio.');
         }
-        return conf;
+        return {
+          ...conf,
+          videos: normalizedVideos
+        };
       }
 
       function initRouter() {
@@ -757,6 +764,7 @@ Promemoria per la configurazione di Formspree
         const isAi = answer.is_ai;
         const quality = typeof answer.quality === 'number' ? answer.quality : 0;
         const videoUrl = state.config.videos[index];
+        const videoMimeType = getVideoMimeType(videoUrl);
         appEl.innerHTML = `
           <section class="card" aria-labelledby="step-title">
             <header class="top-bar">
@@ -766,7 +774,7 @@ Promemoria per la configurazione di Formspree
             <div class="video-step">
               <div class="video-area">
                 <video controls preload="metadata">
-                  <source src="${escapeAttribute(videoUrl)}" type="video/mp4">
+                  <source src="${escapeAttribute(videoUrl)}" type="${escapeAttribute(videoMimeType)}">
                   Il tuo browser non supporta il tag video.
                 </video>
               </div>
@@ -1130,6 +1138,77 @@ Promemoria per la configurazione di Formspree
         return Math.abs(hash).toString(16);
       }
 
+      function normalizeVideos(videos, baseUrl) {
+        return videos.map((entry, index) => {
+          const resolved = resolveVideoEntry(entry, baseUrl);
+          if (!isNonEmptyString(resolved)) {
+            throw new Error(`Voce video non valida in posizione ${index + 1}.`);
+          }
+          return resolved;
+        });
+      }
+
+      function resolveVideoEntry(entry, baseUrl) {
+        if (typeof entry === 'string') {
+          return resolveVideoUrl(entry, baseUrl);
+        }
+        if (entry && typeof entry === 'object') {
+          const candidates = [entry.url, entry.href, entry.path, entry.key, entry.filename, entry.file];
+          const candidate = candidates.find((value) => isNonEmptyString(value));
+          const candidateBase = isNonEmptyString(entry.baseUrl) ? entry.baseUrl : baseUrl;
+          if (isNonEmptyString(candidate)) {
+            return resolveVideoUrl(candidate, candidateBase);
+          }
+        }
+        return '';
+      }
+
+      function resolveVideoUrl(value, baseUrl) {
+        const trimmed = String(value || '').trim();
+        if (!trimmed) {
+          return '';
+        }
+        if (trimmed.startsWith('//')) {
+          return `${window.location.protocol}${trimmed}`;
+        }
+        if (isAbsoluteUrl(trimmed) || trimmed.startsWith('data:')) {
+          return trimmed;
+        }
+        const base = isNonEmptyString(baseUrl) ? baseUrl.trim() : '';
+        if (!base) {
+          return trimmed;
+        }
+        return joinUrl(base, trimmed);
+      }
+
+      function isAbsoluteUrl(value) {
+        return /^https?:\/\//i.test(value);
+      }
+
+      function joinUrl(base, path) {
+        const baseStr = String(base || '').trim();
+        const pathStr = String(path || '').trim();
+        if (!baseStr) {
+          return pathStr;
+        }
+        if (!pathStr) {
+          return baseStr;
+        }
+        const baseHasSlash = baseStr.endsWith('/');
+        const pathHasSlash = pathStr.startsWith('/');
+        if (baseHasSlash && pathHasSlash) {
+          return baseStr + pathStr.slice(1);
+        }
+        if (!baseHasSlash && !pathHasSlash) {
+          return `${baseStr}/${pathStr}`;
+        }
+        return baseStr + pathStr;
+      }
+
+      function isNonEmptyString(value) {
+        return typeof value === 'string' && value.trim().length > 0;
+      }
+
       function escapeHtml(str) {
         if (typeof str !== 'string') {
           return '';
@@ -1154,6 +1233,32 @@ Promemoria per la configurazione di Formspree
 
       function escapeAttribute(value) {
         return escapeHtml(String(value));
+      }
+
+      function getVideoMimeType(url) {
+        if (!isNonEmptyString(url)) {
+          return 'video/mp4';
+        }
+        const cleaned = String(url).split(/[?#]/)[0].trim().toLowerCase();
+        if (cleaned.endsWith('.m3u8')) {
+          return 'application/x-mpegURL';
+        }
+        if (cleaned.endsWith('.mpd')) {
+          return 'application/dash+xml';
+        }
+        if (cleaned.endsWith('.webm')) {
+          return 'video/webm';
+        }
+        if (cleaned.endsWith('.ogv') || cleaned.endsWith('.ogg')) {
+          return 'video/ogg';
+        }
+        if (cleaned.endsWith('.mov') || cleaned.endsWith('.qt')) {
+          return 'video/quicktime';
+        }
+        if (cleaned.endsWith('.m4v')) {
+          return 'video/x-m4v';
+        }
+        return 'video/mp4';
       }
 
       function paintStars(container, value) {
