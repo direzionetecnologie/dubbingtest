@@ -2,30 +2,14 @@
 README
 - Run locally by opening index.html in a modern browser with config.js in the same directory.
 - Publish to GitHub Pages by committing index.html, config.js, and links.html, pushing to your main branch, and enabling GitHub Pages for that branch or /docs folder.
-- Configure videos, SURVEY_TITLE, and GAS_ENDPOINT in config.js; update the values to match your project before sharing the survey.
+- Configure videos, SURVEY_TITLE, and FORM_ENDPOINT in config.js; update the values to match your project before sharing the survey.
 - The offline queue stores unsent responses per participant session in localStorage, retries automatically on each navigation, when the connection returns, and uses navigator.sendBeacon while closing the tab.
 - Share index.html directly with participants; no access code or uid parameter is required.
 
-Google Apps Script Web App Example
-function doPost(e) {
-try {
-const body = JSON.parse(e.postData.contents)
-const ss = SpreadsheetApp.openById('PUT_SHEET_ID_HERE')
-let sh = ss.getSheetByName('responses')
-if (!sh) sh = ss.insertSheet('responses')
-const headers = ['timestamp','user_code','video_id','is_ai','quality_rating','user_agent','submission_id']
-if (sh.getLastRow() === 0) sh.appendRow(headers)
-const exists = sh.createTextFinder(body.submission_id).findNext()
-if (exists) {
-return ContentService.createTextOutput(JSON.stringify({ok:true, dup:true})).setMimeType(ContentService.MimeType.JSON)
-}
-sh.appendRow([new Date().toISOString(), body.user_code, body.video_id, body.is_ai, body.quality_rating, body.user_agent, body.submission_id])
-return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON)
-} catch (err) {
-return ContentService.createTextOutput(JSON.stringify({ok:false, error:String(err)})).setMimeType(ContentService.MimeType.JSON)
-}
-}
-Deployment steps: Open the Google Sheet that will store responses, choose Extensions → Apps Script, paste the code above, replace PUT_SHEET_ID_HERE with your sheet ID, deploy it as a Web App with access set to Anyone, copy the Web App URL, and place it in CONFIG.GAS_ENDPOINT inside config.js.
+Formspree setup reminder
+- Create a form at https://formspree.io, copy the endpoint that looks like https://formspree.io/f/XXXXYYYY.
+- Paste that URL into CONFIG.FORM_ENDPOINT inside config.js. Formspree accepts JSON when the Accept header is set to application/json.
+- Add any notification rules you need from the Formspree dashboard.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -481,12 +465,12 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         if (!conf || typeof conf !== 'object') {
           throw new Error('Configuration is missing. Please add config.js with a CONFIG object.');
         }
-        const { videos, GAS_ENDPOINT, SURVEY_TITLE } = conf;
+        const { videos, FORM_ENDPOINT, SURVEY_TITLE } = conf;
         if (!Array.isArray(videos) || videos.length !== 10 || !videos.every((v) => typeof v === 'string' && v.trim().length > 0)) {
           throw new Error('CONFIG.videos must be an array of 10 video URLs.');
         }
-        if (typeof GAS_ENDPOINT !== 'string' || !GAS_ENDPOINT.trim()) {
-          throw new Error('CONFIG.GAS_ENDPOINT is required.');
+        if (typeof FORM_ENDPOINT !== 'string' || !FORM_ENDPOINT.trim()) {
+          throw new Error('CONFIG.FORM_ENDPOINT is required.');
         }
         if (typeof SURVEY_TITLE !== 'string' || !SURVEY_TITLE.trim()) {
           throw new Error('CONFIG.SURVEY_TITLE is required.');
@@ -1215,9 +1199,12 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         }
 
         async function send(record) {
-          const response = await fetch(CONFIG.GAS_ENDPOINT, {
+          const response = await fetch(CONFIG.FORM_ENDPOINT, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
             body: JSON.stringify(record),
             keepalive: true
           });
@@ -1225,12 +1212,16 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
             throw new Error(`HTTP ${response.status}`);
           }
           let payload = {};
-          try {
-            payload = await response.json();
-          } catch (err) {
-            throw new Error('Invalid server response');
+          const text = await response.text();
+          if (text) {
+            try {
+              payload = JSON.parse(text);
+            } catch (err) {
+              console.warn('Unable to parse server response as JSON', err);
+              payload = {};
+            }
           }
-          if (!payload.ok) {
+          if (payload && (payload.ok === false || payload.error)) {
             throw new Error(payload.error || 'Server error');
           }
           return payload;
@@ -1243,10 +1234,10 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
 
         return {
           postRecord: async (record) => {
-            if (!CONFIG || !CONFIG.GAS_ENDPOINT) {
+            if (!CONFIG || !CONFIG.FORM_ENDPOINT) {
               onError('The response server is not configured. Please retry later.');
               enqueue(record);
-              return { ok: false, error: 'Missing GAS endpoint' };
+              return { ok: false, error: 'Missing form endpoint' };
             }
             try {
               const response = await send(record);
@@ -1259,7 +1250,7 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
             }
           },
           flushQueue: async () => {
-            if (!CONFIG || !CONFIG.GAS_ENDPOINT) {
+            if (!CONFIG || !CONFIG.FORM_ENDPOINT) {
               onError('The response server is not configured. Please retry later.');
               return false;
             }
@@ -1307,13 +1298,13 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
             }
           },
           flushQueueWithBeacon: () => {
-            if (!CONFIG || !CONFIG.GAS_ENDPOINT || typeof navigator.sendBeacon !== 'function') {
+            if (!CONFIG || !CONFIG.FORM_ENDPOINT || typeof navigator.sendBeacon !== 'function') {
               return;
             }
             queue.forEach((record) => {
               try {
                 const blob = new Blob([JSON.stringify(record)], { type: 'application/json' });
-                navigator.sendBeacon(CONFIG.GAS_ENDPOINT, blob);
+                navigator.sendBeacon(CONFIG.FORM_ENDPOINT, blob);
               } catch (err) {
                 /* ignore beacon failures */
               }
