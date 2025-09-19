@@ -2,7 +2,7 @@ window.CONFIG = {
   SURVEY_TITLE: 'Questionario sulla qualità del doppiaggio IA',
   FORM_ENDPOINT: 'https://formspree.io/f/xrbanqkn',
   videos: [
-    'https://example.com/videos/video01.mp4',
+    'https://drive.google.com/file/d/10yFItV6xCPudXc4U2HHW2GByNBmUcWbd/view?usp=sharing',
     'https://example.com/videos/video02.mp4',
     'https://example.com/videos/video03.mp4',
     'https://example.com/videos/video04.mp4',
