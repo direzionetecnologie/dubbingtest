@@ -185,6 +185,29 @@ Promemoria per la configurazione di Formspree
       box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
     }
 
+    .video-fallback {
+      margin-top: 1rem;
+      padding: 1rem 1.25rem;
+      border-radius: 12px;
+      border: 1px solid rgba(132, 153, 188, 0.35);
+      background: rgba(12, 18, 26, 0.85);
+      color: #dbe5f3;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .video-fallback a {
+      color: #6cb5ff;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .video-fallback a:hover,
+    .video-fallback a:focus-visible {
+      text-decoration: underline;
+      outline: none;
+    }
+
     .questions {
       flex: 1 1 360px;
       min-width: 300px;
@@ -773,10 +796,13 @@ Promemoria per la configurazione di Formspree
             </header>
             <div class="video-step">
               <div class="video-area">
-                <video controls preload="metadata">
+                <video controls preload="metadata" src="${escapeAttribute(videoUrl)}">
                   <source src="${escapeAttribute(videoUrl)}" type="${escapeAttribute(videoMimeType)}">
                   Il tuo browser non supporta il tag video.
                 </video>
+                <div class="video-fallback" data-role="video-fallback" role="alert" hidden>
+                  Impossibile caricare il video. <a href="${escapeAttribute(videoUrl)}" target="_blank" rel="noopener noreferrer">Aprilo in una nuova scheda</a>.
+                </div>
               </div>
               <form class="questions" id="step-form">
                 <fieldset>
@@ -810,7 +836,79 @@ Promemoria per la configurazione di Formspree
             <div class="status" data-role="status" aria-live="polite"></div>
           </section>
         `;
+        setupVideoPlayback(videoUrl, videoMimeType);
         setupStepListeners(index, quality);
+      }
+
+      function setupVideoPlayback(videoUrl, videoMimeType) {
+        const videoEl = appEl.querySelector('.video-area video');
+        if (!videoEl) {
+          return;
+        }
+
+        const sourceEl = videoEl.querySelector('source');
+        if (sourceEl) {
+          sourceEl.src = videoUrl;
+          sourceEl.type = videoMimeType;
+        }
+
+        videoEl.setAttribute('src', videoUrl);
+        videoEl.src = videoUrl;
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('webkit-playsinline', '');
+
+        const fallbackEl = appEl.querySelector('[data-role="video-fallback"]');
+        if (fallbackEl) {
+          fallbackEl.hidden = true;
+          const fallbackLink = fallbackEl.querySelector('a');
+          if (fallbackLink) {
+            fallbackLink.href = videoUrl;
+          }
+        }
+
+        const fallbackStatusMessage = 'Impossibile caricare il video. Usa il link qui sotto per aprirlo in una nuova scheda.';
+        let fallbackVisible = false;
+
+        function hideFallback() {
+          if (fallbackEl) {
+            fallbackEl.hidden = true;
+          }
+          if (fallbackVisible && state.statusMessage === fallbackStatusMessage) {
+            setStatus('', 'info');
+          }
+          fallbackVisible = false;
+        }
+
+        function showFallback() {
+          if (fallbackVisible) {
+            return;
+          }
+          fallbackVisible = true;
+          if (fallbackEl) {
+            fallbackEl.hidden = false;
+          }
+          setStatus(fallbackStatusMessage, 'error');
+        }
+
+        videoEl.addEventListener('error', showFallback);
+        videoEl.addEventListener('loadeddata', hideFallback);
+        videoEl.addEventListener('loadedmetadata', hideFallback);
+        videoEl.addEventListener('canplay', hideFallback);
+        videoEl.addEventListener('play', hideFallback);
+
+        if (typeof videoEl.load === 'function') {
+          try {
+            videoEl.load();
+          } catch (err) {
+            // Ignoriamo gli errori del caricamento programmatico.
+          }
+        }
+
+        if (videoEl.readyState >= 2) {
+          hideFallback();
+        } else if (videoEl.error) {
+          showFallback();
+        }
       }
 
       function setupStepListeners(index, quality) {
