@@ -12,10 +12,5 @@ window.CONFIG = {
     'https://example.com/videos/video08.mp4',
     'https://example.com/videos/video09.mp4',
     'https://example.com/videos/video10.mp4'
-  ],
-  userCodes: [
-    'CODE001', 'CODE002', 'CODE003', 'CODE004', 'CODE005',
-    'CODE006', 'CODE007', 'CODE008', 'CODE009', 'CODE010',
-    'CODE011', 'CODE012', 'CODE013', 'CODE014', 'CODE015'
   ]
 };
