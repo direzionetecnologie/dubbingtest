@@ -1,16 +1,17 @@
 window.CONFIG = {
   SURVEY_TITLE: 'Questionario sulla qualità del doppiaggio IA',
   FORM_ENDPOINT: 'https://formspree.io/f/xrbanqkn',
+  VIDEO_BASE_URL: 'https://aiworkshopmediaset.s3.eu-west-1.amazonaws.com/video/',
   videos: [
-    'https://drive.google.com/file/d/10yFItV6xCPudXc4U2HHW2GByNBmUcWbd/view?usp=sharing',
-    'https://example.com/videos/video02.mp4',
-    'https://example.com/videos/video03.mp4',
-    'https://example.com/videos/video04.mp4',
-    'https://example.com/videos/video05.mp4',
-    'https://example.com/videos/video06.mp4',
-    'https://example.com/videos/video07.mp4',
-    'https://example.com/videos/video08.mp4',
-    'https://example.com/videos/video09.mp4',
-    'https://example.com/videos/video10.mp4'
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4',
+    'A1_SQUADRA_ANTIMAFIA.mp4'
   ]
 };
