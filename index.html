@@ -2,9 +2,9 @@
 README
 - Run locally by opening index.html in a modern browser with config.js in the same directory.
 - Publish to GitHub Pages by committing index.html, config.js, and links.html, pushing to your main branch, and enabling GitHub Pages for that branch or /docs folder.
-- Configure videos, user codes, SURVEY_TITLE, and GAS_ENDPOINT in config.js; update the values to match your project before sharing the survey.
-- The offline queue stores unsent responses per uid in localStorage, retries automatically on each navigation, when the connection returns, and uses navigator.sendBeacon while closing the tab.
-- Use links.html after configuring userCodes to view and copy all 15 participant survey links (index.html?uid=CODE).
+- Configure videos, SURVEY_TITLE, and GAS_ENDPOINT in config.js; update the values to match your project before sharing the survey.
+- The offline queue stores unsent responses per participant session in localStorage, retries automatically on each navigation, when the connection returns, and uses navigator.sendBeacon while closing the tab.
+- Share index.html directly with participants; no access code or uid parameter is required.
 
 Google Apps Script Web App Example
 function doPost(e) {
@@ -424,9 +424,11 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
       };
 
       const storageKeys = {
-        state: (uid) => `survey_state_${uid}`,
-        queue: (uid) => `survey_queue_${uid}`
+        state: (uid) => `survey_state_${toStorageKeyFragment(uid)}`,
+        queue: (uid) => `survey_queue_${toStorageKeyFragment(uid)}`
       };
+
+      const SESSION_ID_STORAGE_KEY = 'survey_session_id';
 
       let dataAdapter = null;
 
@@ -443,19 +445,7 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
 
         const params = new URLSearchParams(window.location.search);
         state.debug = params.get('debug') === '1';
-        state.uid = readUid(params);
-
-        if (!state.uid) {
-          state.error = 'MISSING_UID';
-          render();
-          return;
-        }
-
-        if (!state.config.userCodes.includes(state.uid)) {
-          state.error = 'INVALID_UID';
-          render();
-          return;
-        }
+        state.uid = initializeSessionId(params);
 
         document.title = state.config.SURVEY_TITLE;
 
@@ -491,12 +481,9 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         if (!conf || typeof conf !== 'object') {
           throw new Error('Configuration is missing. Please add config.js with a CONFIG object.');
         }
-        const { videos, userCodes, GAS_ENDPOINT, SURVEY_TITLE } = conf;
+        const { videos, GAS_ENDPOINT, SURVEY_TITLE } = conf;
         if (!Array.isArray(videos) || videos.length !== 10 || !videos.every((v) => typeof v === 'string' && v.trim().length > 0)) {
           throw new Error('CONFIG.videos must be an array of 10 video URLs.');
-        }
-        if (!Array.isArray(userCodes) || userCodes.length !== 15 || !userCodes.every((code) => typeof code === 'string' && code.trim().length > 0)) {
-          throw new Error('CONFIG.userCodes must be an array of 15 access codes.');
         }
         if (typeof GAS_ENDPOINT !== 'string' || !GAS_ENDPOINT.trim()) {
           throw new Error('CONFIG.GAS_ENDPOINT is required.');
@@ -528,6 +515,68 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         state.queueLength = dataAdapter.getQueue().length;
       }
 
+      function initializeSessionId(params) {
+        const explicit = readUid(params);
+        if (explicit) {
+          rememberSessionId(explicit);
+          return explicit;
+        }
+        const stored = getStoredSessionId();
+        if (stored) {
+          return stored;
+        }
+        const generated = generateSessionId();
+        rememberSessionId(generated);
+        return generated;
+      }
+
+      function getStoredSessionId() {
+        try {
+          const value = localStorage.getItem(SESSION_ID_STORAGE_KEY);
+          if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+              return trimmed;
+            }
+          }
+        } catch (err) {
+          /* ignore storage errors */
+        }
+        return null;
+      }
+
+      function rememberSessionId(value) {
+        if (typeof value !== 'string') {
+          return;
+        }
+        const normalized = value.trim();
+        if (!normalized) {
+          return;
+        }
+        try {
+          localStorage.setItem(SESSION_ID_STORAGE_KEY, normalized);
+        } catch (err) {
+          /* ignore storage errors */
+        }
+      }
+
+      function generateSessionId() {
+        const random = Math.random().toString(16).slice(2, 10);
+        const timestamp = Date.now().toString(16);
+        return `anon-${timestamp}-${random}`;
+      }
+
+      function toStorageKeyFragment(uid) {
+        if (typeof uid !== 'string') {
+          return 'anonymous';
+        }
+        const trimmed = uid.trim();
+        if (!trimmed) {
+          return 'anonymous';
+        }
+        return trimmed.replace(/[^a-z0-9_-]/gi, '_');
+      }
+
       function readUid(params) {
         if (!(params instanceof URLSearchParams)) {
           params = new URLSearchParams(window.location.search);
@@ -536,7 +585,8 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         if (!uid) {
           return null;
         }
-        return uid.trim();
+        const trimmed = uid.trim();
+        return trimmed.length > 0 ? trimmed : null;
       }
 
       function loadStoredState() {
@@ -620,17 +670,10 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
       }
 
       function renderError() {
-        let title = 'Configuration error';
-        let description = 'Please contact the organizer for assistance.';
-        if (state.error === 'MISSING_UID') {
-          title = 'Code required';
-          description = 'This link is missing your participant code. Please use the personalized survey link you received or contact the organizer.';
-        } else if (state.error === 'INVALID_UID') {
-          title = 'Invalid code';
-          description = 'The supplied participant code is not recognized. Double-check the link or contact the organizer for help.';
-        } else if (typeof state.error === 'string') {
-          description = state.error;
-        }
+        const title = 'Configuration error';
+        const description = typeof state.error === 'string'
+          ? state.error
+          : 'Please contact the organizer for assistance.';
         appEl.innerHTML = `
           <section class="card error-view" aria-labelledby="error-title">
             <h1 id="error-title">${escapeHtml(title)}</h1>
@@ -646,7 +689,7 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
             <div class="logo" aria-hidden="true"><span>MFE</span></div>
             <h1 id="welcome-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
             <p>Thank you for helping us evaluate AI-dubbed videos. You will review ${state.config.videos.length} clips and answer two quick questions for each one.</p>
-            <p>Your progress is saved locally under your code <strong>${escapeHtml(state.uid)}</strong>, so you can close and return to resume anytime.</p>
+            <p>Your progress is saved locally in this browser, so you can close and return to resume anytime.</p>
             <button type="button" id="start-btn">Start</button>
             <div class="status" data-role="status" aria-live="polite"></div>
           </section>
@@ -813,7 +856,6 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
           <section class="card" aria-labelledby="final-title">
             <h1 id="final-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
             <p>Great work! You have reviewed all ${total} videos.</p>
-            <p>Participant code: <strong>${escapeHtml(state.uid)}</strong></p>
             <ul class="summary-list" aria-label="Progress summary">
               <li>Videos answered: ${answersComplete}/${total}</li>
               <li>Responses waiting to sync: ${pending}</li>
@@ -1003,7 +1045,7 @@ Deployment steps: Open the Google Sheet that will store responses, choose Extens
         const total = state.config ? state.config.videos.length : 0;
         panel.innerHTML = `
           <h3>Debug info</h3>
-          <p><strong>UID:</strong> ${escapeHtml(state.uid || 'n/a')}</p>
+          <p><strong>Session ID:</strong> ${escapeHtml(state.uid || 'n/a')}</p>
           <p><strong>Index:</strong> ${state.currentIndex}/${total}</p>
           <p><strong>Queue:</strong> ${state.queueLength}</p>
           <button type="button" id="clear-debug">Clear local data</button>

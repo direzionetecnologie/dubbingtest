@@ -78,50 +78,29 @@
       outline: none;
     }
 
-    .error {
-      padding: 1rem;
-      border-radius: 12px;
-      background: rgba(255, 120, 120, 0.1);
-      border: 1px solid rgba(255, 150, 150, 0.4);
-      color: #ffd7d7;
-    }
   </style>
-  <script src="config.js"></script>
 </head>
 <body>
   <main>
-    <h1>Participant Survey Links</h1>
-    <p>Copy each unique link when distributing the survey. The <code>uid</code> parameter ensures responses are tied to the correct participant.</p>
-    <ul id="link-list">index.html?uid=CODE001</ul>
+    <h1>Survey Link</h1>
+    <p>This survey now uses open access. Share the link below with participants.</p>
+    <ul>
+      <li>
+        <strong>Survey URL</strong>
+        <a id="survey-link" href="index.html">index.html</a>
+      </li>
+    </ul>
   </main>
   <script>
     (function () {
       'use strict';
-      const list = document.getElementById('link-list');
-      if (!window.CONFIG || !Array.isArray(CONFIG.userCodes) || CONFIG.userCodes.length === 0) {
-        const notice = document.createElement('div');
-        notice.className = 'error';
-        notice.textContent = 'CONFIG.userCodes is missing. Please update config.js.';
-        list.replaceWith(notice);
+      const link = document.getElementById('survey-link');
+      if (!link) {
         return;
       }
-      const base = new URL('index.html', window.location.href);
-      const fragment = document.createDocumentFragment();
-      CONFIG.userCodes.forEach((code) => {
-        const url = new URL(base.href);
-        url.searchParams.set('uid', code);
-        const li = document.createElement('li');
-        const codeLabel = document.createElement('strong');
-        codeLabel.textContent = code;
-        const link = document.createElement('a');
-        link.href = url.toString();
-        link.textContent = url.toString();
-        link.setAttribute('data-code', code);
-        li.appendChild(codeLabel);
-        li.appendChild(link);
-        fragment.appendChild(li);
-      });
-      list.appendChild(fragment);
+      const absolute = new URL('index.html', window.location.href);
+      link.href = absolute.toString();
+      link.textContent = absolute.toString();
     })();
   </script>
 </body>
