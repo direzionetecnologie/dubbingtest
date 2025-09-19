@@ -1,6 +1,6 @@
 window.CONFIG = {
   SURVEY_TITLE: 'AI Dubbing Quality Survey',
-  GAS_ENDPOINT: 'https://script.google.com/macros/s/AKfycbwccatHJb4Dvj8dnH-prhCd0iT9vVXmIrsytowF4bZHmth2yelCj6W6MKWfbQ2Qaq7p/exec',
+  FORM_ENDPOINT: 'https://formspree.io/f/YOUR_FORM_ID',
   videos: [
     'https://example.com/videos/video01.mp4',
     'https://example.com/videos/video02.mp4',
