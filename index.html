@@ -17,10 +17,13 @@ Promemoria per la configurazione di Formspree
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Questionario</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geologica:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
-      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Geologica', 'Inter', 'Segoe UI', system-ui, sans-serif;
       font-size: 16px;
     }
 
@@ -36,12 +39,12 @@ Promemoria per la configurazione di Formspree
       display: flex;
       align-items: stretch;
       justify-content: center;
-      padding: 2rem 1rem 3rem;
+      padding: clamp(2rem, 4vw, 3.5rem) clamp(1rem, 3vw, 2.25rem) clamp(3rem, 6vw, 4.75rem);
     }
 
     #app {
       width: 100%;
-      max-width: 1100px;
+      max-width: 1240px;
       margin: 0 auto;
     }
 
@@ -49,7 +52,7 @@ Promemoria per la configurazione di Formspree
       background: rgba(18, 24, 32, 0.9);
       backdrop-filter: blur(8px);
       border-radius: 16px;
-      padding: 2.5rem 2.25rem;
+      padding: clamp(2.5rem, 2.5vw + 2rem, 3.25rem);
       box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
       border: 1px solid rgba(90, 120, 150, 0.25);
     }
@@ -78,25 +81,42 @@ Promemoria per la configurazione di Formspree
 
     .welcome {
       text-align: center;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .welcome h1 {
+      margin-bottom: 1.75rem;
+    }
+
+    .welcome p {
+      margin: 0 auto 1.5rem;
+      font-size: 1.05rem;
+      line-height: 1.75;
+      max-width: 640px;
+    }
+
+    .welcome button {
+      margin-top: 1.5rem;
     }
 
     .logo {
-      width: 140px;
-      height: 140px;
-      margin: 0 auto 1.5rem;
-      background: linear-gradient(135deg, #2a84ff, #6b5bff);
-      border-radius: 24px;
+      width: min(220px, 60vw);
+      margin: 0 auto 2rem;
+      padding: 1rem;
+      background: rgba(12, 18, 26, 0.85);
+      border-radius: 28px;
+      border: 1px solid rgba(132, 153, 188, 0.35);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
     }
 
-    .logo span {
-      font-size: 3rem;
-      font-weight: 700;
-      color: #f5f7fa;
-      letter-spacing: 0.08em;
+    .logo img {
+      width: 100%;
+      height: auto;
+      display: block;
     }
 
     button {
@@ -146,15 +166,15 @@ Promemoria per la configurazione di Formspree
 
     .video-step {
       display: flex;
-      gap: clamp(1.25rem, 2vw, 2.5rem);
-      align-items: flex-start;
-      margin-top: 2rem;
+      gap: clamp(1.5rem, 3vw, 3rem);
+      align-items: stretch;
+      margin-top: 2.5rem;
       flex-wrap: wrap;
     }
 
     .video-area {
-      flex: 1 1 420px;
-      min-width: 280px;
+      flex: 1 1 480px;
+      min-width: 300px;
     }
 
     video {
@@ -166,31 +186,31 @@ Promemoria per la configurazione di Formspree
     }
 
     .questions {
-      flex: 1 1 320px;
-      min-width: 260px;
+      flex: 1 1 360px;
+      min-width: 300px;
       background: rgba(12, 17, 25, 0.85);
       border-radius: 18px;
-      padding: 1.5rem;
+      padding: 2rem;
       border: 1px solid rgba(90, 120, 150, 0.2);
     }
 
     fieldset {
       border: none;
       padding: 0;
-      margin: 0 0 1.5rem;
+      margin: 0 0 1.75rem;
     }
 
     legend {
-      font-size: 1.1rem;
-      margin-bottom: 0.85rem;
+      font-size: 1.15rem;
+      margin-bottom: 1rem;
       font-weight: 600;
       color: #f2f5ff;
     }
 
     .option {
       display: block;
-      margin-bottom: 0.75rem;
-      font-size: 1.05rem;
+      margin-bottom: 0.85rem;
+      font-size: 1.08rem;
       color: #dbe5f3;
     }
 
@@ -249,8 +269,8 @@ Promemoria per la configurazione di Formspree
 
     .nav-buttons {
       display: flex;
-      gap: 1rem;
-      margin-top: 2.5rem;
+      gap: 1.25rem;
+      margin-top: 3.5rem;
     }
 
     .status {
@@ -287,34 +307,43 @@ Promemoria per la configurazione di Formspree
       color: #c0d3f2;
     }
 
-    .summary-list {
-      list-style: none;
-      padding: 0;
-      margin: 1.5rem 0 0;
-      display: grid;
-      gap: 0.5rem;
+    .final-view {
+      text-align: center;
     }
 
-    .summary-list li {
-      background: rgba(12, 17, 25, 0.75);
-      border: 1px solid rgba(90, 120, 150, 0.25);
-      border-radius: 12px;
-      padding: 0.85rem 1rem;
-      font-size: 0.95rem;
-      color: #d0dcf0;
+    .final-message {
+      margin: 1.5rem auto 0;
+      font-size: 1.2rem;
+      color: #dce7ff;
+    }
+
+    .final-note {
+      margin: 1.75rem auto 0;
+      max-width: 520px;
+      font-size: 1.05rem;
+      color: #c0d3f2;
+      line-height: 1.6;
     }
 
     .final-actions {
-      margin-top: 2rem;
+      margin-top: 2.5rem;
       display: flex;
+      justify-content: center;
       align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
     }
 
-    .final-actions .note {
-      font-size: 0.95rem;
-      color: #9fb4d4;
+    .final-view .status {
+      margin-top: 2.5rem;
+      text-align: center;
+    }
+
+    .final-success {
+      margin-top: 2.5rem;
+      font-size: 1.08rem;
+      color: #7be0a0;
+      line-height: 1.6;
     }
 
     .error-view {
@@ -363,20 +392,31 @@ Promemoria per la configurazione di Formspree
 
     @media (max-width: 900px) {
       body {
-        padding: 1.5rem 0.75rem 2.5rem;
+        padding: 1.75rem 0.75rem 2.75rem;
       }
 
       .card {
-        padding: 2rem 1.5rem;
+        padding: 2.25rem 1.75rem;
       }
 
       .video-step {
         flex-direction: column;
+        gap: 1.75rem;
+      }
+
+      .video-area,
+      .questions {
+        min-width: 0;
+      }
+
+      .questions {
+        padding: 1.75rem;
       }
 
       .nav-buttons {
         flex-direction: column-reverse;
         align-items: stretch;
+        margin-top: 2.5rem;
       }
 
       .primary {
@@ -686,7 +726,9 @@ Promemoria per la configurazione di Formspree
       function renderWelcome() {
         appEl.innerHTML = `
           <section class="card welcome" aria-labelledby="welcome-title">
-            <div class="logo" aria-hidden="true"><span>https://www.google.com/url?sa=i&url=https%3A%2F%2Fit.m.wikipedia.org%2Fwiki%2FFile%3AMFE_-_MediaForEurope_Logo.png&psig=AOvVaw3ZofZf8XzWVJgcHL23j9oh&ust=1758375932460000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCIDG0_j65I8DFQAAAAAdAAAAABAE</span></div>
+            <div class="logo">
+              <img src="MFE_-_MediaForEurope_Logo%20(1).png" alt="Logo MediaForEurope">
+            </div>
             <h1 id="welcome-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
             <p>Grazie per aiutarci a valutare i video doppiati con l\'IA. Guarderai ${state.config.videos.length} clip e risponderai a due domande rapide per ciascuna.</p>
             <p>I progressi restano salvati finch&eacute; questa scheda rimane aperta; se la chiudi, il questionario ripartir&agrave; dall\'inizio.</p>
@@ -846,26 +888,21 @@ Promemoria per la configurazione di Formspree
         const pending = state.queueLength;
         const allSent = allAnswersPosted();
         const readyToSubmit = pending === 0 && allSent;
-        const answersComplete = state.answers.filter((a) => isAnswerComplete(a)).length === total;
         const noteText = state.submitted
-          ? 'Tutte le risposte sono state inviate con successo.'
+          ? ''
           : readyToSubmit
-            ? 'Tutte le risposte sono sincronizzate. Premi "Invia" per completare.'
+            ? 'Premi "Invia" per completare.'
             : 'Mantieni questa pagina aperta finch&eacute; tutte le risposte non sono state sincronizzate.';
         appEl.innerHTML = `
-          <section class="card" aria-labelledby="final-title">
+          <section class="card final-view" aria-labelledby="final-title">
             <h1 id="final-title">${escapeHtml(state.config.SURVEY_TITLE)}</h1>
-            <p>Ottimo lavoro! Hai esaminato tutti i ${total} video.</p>
-            <ul class="summary-list" aria-label="Riepilogo dei progressi">
-              <li>Video con risposta: ${answersComplete}/${total}</li>
-              <li>Risposte in attesa di sincronizzazione: ${pending}</li>
-            </ul>
+            <p class="final-message">Ottimo lavoro! Hai esaminato tutti i ${total} video.</p>
+            ${noteText ? `<p class="final-note">${noteText}</p>` : ''}
             <div class="final-actions">
               <button type="button" class="primary" id="submit-btn" ${readyToSubmit && !state.submitted ? '' : 'disabled'}>${state.submitted ? 'Inviato' : 'Invia'}</button>
-              <span class="note">${noteText}</span>
             </div>
             <div class="status" data-role="status" aria-live="polite"></div>
-            ${state.submitted ? '<p class="status" data-type="success">Fatto! Le tue risposte sono state inviate. Puoi chiudere questa scheda.</p>' : ''}
+            ${state.submitted ? '<p class="final-success">Fatto le risposte sono state salvate.</p>' : ''}
           </section>
         `;
 
@@ -886,7 +923,7 @@ Promemoria per la configurazione di Formspree
             if (success && allAnswersPosted()) {
               state.submitted = true;
               persistState();
-              setStatus('Fatto! Le tue risposte sono state inviate. Grazie!', 'success');
+              setStatus('', 'info');
             } else {
               submitBtn.disabled = false;
               submitBtn.textContent = 'Invia';
@@ -949,7 +986,7 @@ Promemoria per la configurazione di Formspree
         }
         return dataAdapter.postRecord(record).then((response) => {
           if (response.ok) {
-            setStatus('Risposta sincronizzata.', 'success');
+            setStatus('', 'info');
           }
           return response;
         });
