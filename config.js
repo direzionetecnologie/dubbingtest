@@ -1,5 +1,5 @@
 window.CONFIG = {
-  SURVEY_TITLE: 'AI Dubbing Quality Survey',
+  SURVEY_TITLE: 'Questionario sulla qualità del doppiaggio IA',
   FORM_ENDPOINT: 'https://formspree.io/f/xrbanqkn',
   videos: [
     'https://example.com/videos/video01.mp4',
