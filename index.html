@@ -941,15 +941,17 @@ Promemoria per la configurazione di Formspree
             videoAreaEl.classList.add('has-fallback');
           }
           if (fallbackPlayerEl) {
-            fallbackPlayerEl.innerHTML = '';
-            const iframe = document.createElement('iframe');
-            iframe.setAttribute('title', 'Riproduzione alternativa del video');
-            iframe.setAttribute('loading', 'lazy');
-            iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-            iframe.setAttribute('allowfullscreen', '');
-            iframe.setAttribute('referrerpolicy', 'no-referrer');
-            iframe.srcdoc = buildFallbackPlayerHtml(videoUrl, videoMimeType);
-            fallbackPlayerEl.appendChild(iframe);
+            if (!fallbackPlayerInitialized) {
+              fallbackPlayerEl.innerHTML = '';
+              const iframe = document.createElement('iframe');
+              iframe.src = videoUrl;
+              iframe.setAttribute('title', 'Riproduzione alternativa del video');
+              iframe.setAttribute('loading', 'lazy');
+              iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+              iframe.setAttribute('allowfullscreen', '');
+              fallbackPlayerEl.appendChild(iframe);
+              fallbackPlayerInitialized = true;
+            }
             fallbackPlayerEl.hidden = false;
           }
           if (typeof videoEl.pause === 'function') {
@@ -1316,94 +1318,6 @@ Promemoria per la configurazione di Formspree
           }
           return resolved;
         });
-      }
-
-      function buildFallbackPlayerHtml(videoUrl, videoMimeType) {
-        if (!isNonEmptyString(videoUrl)) {
-          return `<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #04070d;
-      color: #eef3ff;
-      font-family: 'Geologica', 'Inter', 'Segoe UI', system-ui, sans-serif;
-      padding: 1.5rem;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-  <p>Non è stato possibile preparare il lettore alternativo. Riprova a caricare la pagina o apri il video manualmente.</p>
-</body>
-</html>`;
-        }
-        const safeUrl = escapeAttribute(videoUrl);
-        const safeType = escapeAttribute(videoMimeType || getVideoMimeType(videoUrl));
-        return `<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    :root {
-      color-scheme: dark;
-    }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #04070d;
-      color: #eef3ff;
-      font-family: 'Geologica', 'Inter', 'Segoe UI', system-ui, sans-serif;
-      padding: 1rem;
-    }
-    main {
-      width: 100%;
-      max-width: 960px;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    video {
-      width: 100%;
-      height: auto;
-      border: none;
-      border-radius: 12px;
-      background: #000;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-    }
-    p {
-      margin: 0;
-      font-size: 0.9375rem;
-      line-height: 1.45;
-      color: rgba(220, 232, 255, 0.8);
-      text-align: center;
-    }
-    a {
-      color: #6cb5ff;
-    }
-  </style>
-</head>
-<body>
-  <main>
-    <video controls playsinline preload="metadata" controlsList="nodownload">
-      <source src="${safeUrl}" type="${safeType}">
-      Il tuo browser non supporta il video. <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Scarica il file</a>.
-    </video>
-    <p>Se il lettore non parte, usa il link sopra per aprire o scaricare il video.</p>
-  </main>
-</body>
-</html>`;
       }
 
       function resolveVideoEntry(entry, baseUrl) {
