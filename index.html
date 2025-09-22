@@ -909,7 +909,6 @@ Promemoria per la configurazione di Formspree
 
         const fallbackStatusMessage = 'Abbiamo attivato un lettore alternativo per questo video. Se non funziona, usa il link di supporto.';
         let fallbackVisible = false;
-        let fallbackPlayerInitialized = false;
 
         function hideFallback() {
           if (fallbackEl) {
@@ -926,7 +925,6 @@ Promemoria per la configurazione di Formspree
             videoAreaEl.classList.remove('has-fallback');
           }
           fallbackVisible = false;
-          fallbackPlayerInitialized = false;
         }
 
         function showFallback() {
