@@ -177,6 +177,10 @@ Promemoria per la configurazione di Formspree
       min-width: 300px;
     }
 
+    .video-area.has-fallback video {
+      display: none;
+    }
+
     video {
       width: 100%;
       border-radius: 18px;
@@ -194,6 +198,32 @@ Promemoria per la configurazione di Formspree
       color: #dbe5f3;
       font-size: 0.95rem;
       line-height: 1.5;
+    }
+
+    .video-area.has-fallback .video-fallback {
+      margin-top: 0;
+    }
+
+    .video-fallback p {
+      margin: 0 0 0.75rem;
+    }
+
+    .video-fallback__player {
+      margin-top: 0.75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(132, 153, 188, 0.35);
+      background: #04070d;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      min-height: 240px;
+    }
+
+    .video-fallback__player iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #000;
     }
 
     .video-fallback a {
@@ -854,13 +884,14 @@ Promemoria per la configurazione di Formspree
               <p class="progress">Video ${index + 1} di ${total}</p>
             </header>
             <div class="video-step">
-              <div class="video-area">
+              <div class="video-area" data-role="video-area">
                 <video controls preload="metadata" src="${escapeAttribute(videoUrl)}">
                   <source src="${escapeAttribute(videoUrl)}" type="${escapeAttribute(videoMimeType)}">
                   Il tuo browser non supporta il tag video.
                 </video>
                 <div class="video-fallback" data-role="video-fallback" role="alert" hidden>
-                  Impossibile caricare il video. <a href="${escapeAttribute(videoUrl)}" target="_blank" rel="noopener noreferrer">Aprilo in una nuova scheda</a>.
+                  <p>Non siamo riusciti a caricare il video automaticamente. Abbiamo attivato un lettore alternativo qui sotto; se non dovesse funzionare, <a href="${escapeAttribute(videoUrl)}" target="_blank" rel="noopener noreferrer">aprilo in una nuova scheda</a>.</p>
+                  <div class="video-fallback__player" data-role="video-fallback-player" hidden></div>
                 </div>
               </div>
               <form class="questions" id="step-form">
@@ -905,6 +936,11 @@ Promemoria per la configurazione di Formspree
           return;
         }
 
+        const videoAreaEl = appEl.querySelector('[data-role="video-area"]');
+        if (videoAreaEl) {
+          videoAreaEl.classList.remove('has-fallback');
+        }
+
         const sourceEl = videoEl.querySelector('source');
         if (sourceEl) {
           sourceEl.src = videoUrl;
@@ -917,6 +953,7 @@ Promemoria per la configurazione di Formspree
         videoEl.setAttribute('webkit-playsinline', '');
 
         const fallbackEl = appEl.querySelector('[data-role="video-fallback"]');
+        const fallbackPlayerEl = fallbackEl ? fallbackEl.querySelector('[data-role="video-fallback-player"]') : null;
         if (fallbackEl) {
           fallbackEl.hidden = true;
           const fallbackLink = fallbackEl.querySelector('a');
@@ -924,8 +961,12 @@ Promemoria per la configurazione di Formspree
             fallbackLink.href = videoUrl;
           }
         }
+        if (fallbackPlayerEl) {
+          fallbackPlayerEl.hidden = true;
+          fallbackPlayerEl.innerHTML = '';
+        }
 
-        const fallbackStatusMessage = 'Impossibile caricare il video. Usa il link qui sotto per aprirlo in una nuova scheda.';
+        const fallbackStatusMessage = 'Abbiamo attivato un lettore alternativo per questo video. Se non funziona, usa il link di supporto.';
         let fallbackVisible = false;
 
         function hideFallback() {
@@ -934,6 +975,13 @@ Promemoria per la configurazione di Formspree
           }
           if (fallbackVisible && state.statusMessage === fallbackStatusMessage) {
             setStatus('', 'info');
+          }
+          if (fallbackPlayerEl) {
+            fallbackPlayerEl.hidden = true;
+            fallbackPlayerEl.innerHTML = '';
+          }
+          if (videoAreaEl) {
+            videoAreaEl.classList.remove('has-fallback');
           }
           fallbackVisible = false;
         }
@@ -945,6 +993,28 @@ Promemoria per la configurazione di Formspree
           fallbackVisible = true;
           if (fallbackEl) {
             fallbackEl.hidden = false;
+          }
+          if (videoAreaEl) {
+            videoAreaEl.classList.add('has-fallback');
+          }
+          if (fallbackPlayerEl) {
+            fallbackPlayerEl.innerHTML = '';
+            const iframe = document.createElement('iframe');
+            iframe.setAttribute('title', 'Riproduzione alternativa del video');
+            iframe.setAttribute('loading', 'lazy');
+            iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+            iframe.setAttribute('allowfullscreen', '');
+            iframe.setAttribute('referrerpolicy', 'no-referrer');
+            iframe.srcdoc = buildFallbackPlayerHtml(videoUrl, videoMimeType);
+            fallbackPlayerEl.appendChild(iframe);
+            fallbackPlayerEl.hidden = false;
+          }
+          if (typeof videoEl.pause === 'function') {
+            try {
+              videoEl.pause();
+            } catch (err) {
+              // Ignoriamo gli errori derivanti dalla pausa del video non caricato.
+            }
           }
           setStatus(fallbackStatusMessage, 'error');
         }
@@ -1303,6 +1373,94 @@ Promemoria per la configurazione di Formspree
           }
           return resolved;
         });
+      }
+
+      function buildFallbackPlayerHtml(videoUrl, videoMimeType) {
+        if (!isNonEmptyString(videoUrl)) {
+          return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #04070d;
+      color: #eef3ff;
+      font-family: 'Geologica', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      padding: 1.5rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <p>Non è stato possibile preparare il lettore alternativo. Riprova a caricare la pagina o apri il video manualmente.</p>
+</body>
+</html>`;
+        }
+        const safeUrl = escapeAttribute(videoUrl);
+        const safeType = escapeAttribute(videoMimeType || getVideoMimeType(videoUrl));
+        return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #04070d;
+      color: #eef3ff;
+      font-family: 'Geologica', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      padding: 1rem;
+    }
+    main {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    video {
+      width: 100%;
+      height: auto;
+      border: none;
+      border-radius: 12px;
+      background: #000;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    p {
+      margin: 0;
+      font-size: 0.9375rem;
+      line-height: 1.45;
+      color: rgba(220, 232, 255, 0.8);
+      text-align: center;
+    }
+    a {
+      color: #6cb5ff;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <video controls playsinline preload="metadata" controlsList="nodownload">
+      <source src="${safeUrl}" type="${safeType}">
+      Il tuo browser non supporta il video. <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">Scarica il file</a>.
+    </video>
+    <p>Se il lettore non parte, usa il link sopra per aprire o scaricare il video.</p>
+  </main>
+</body>
+</html>`;
       }
 
       function resolveVideoEntry(entry, baseUrl) {
