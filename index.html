@@ -248,6 +248,10 @@ Promemoria per la configurazione di Formspree
       margin-bottom: 0.5rem;
     }
 
+    .followup-fieldset {
+      margin-top: 1.25rem;
+    }
+
     .stars {
       display: inline-flex;
       gap: 0.35rem;
@@ -474,6 +478,12 @@ Promemoria per la configurazione di Formspree
         queueLength: 0
       };
 
+      const LOW_QUALITY_REASONS = [
+        { value: 'lip-sync', label: 'Lip sync' },
+        { value: 'voice', label: 'Voce' },
+        { value: 'acting', label: 'Recitazione' }
+      ];
+
       const storageKeys = {
         state: (uid) => `survey_state_${toStorageKeyFragment(uid)}`,
         queue: (uid) => `survey_queue_${toStorageKeyFragment(uid)}`
@@ -687,6 +697,9 @@ Promemoria per la configurazione di Formspree
         const normalized = {
           is_ai: value.is_ai === 'yes' || value.is_ai === 'no' ? value.is_ai : undefined,
           quality: typeof value.quality === 'number' ? value.quality : undefined,
+          low_quality_reason: isValidLowQualityReason(value.low_quality_reason)
+            ? value.low_quality_reason
+            : undefined,
           posted: Boolean(value.posted),
           submissionId: typeof value.submissionId === 'string' ? value.submissionId : undefined
         };
@@ -786,6 +799,10 @@ Promemoria per la configurazione di Formspree
         const total = state.config.videos.length;
         const isAi = answer.is_ai;
         const quality = typeof answer.quality === 'number' ? answer.quality : 0;
+        const lowQualityReason = isValidLowQualityReason(answer.low_quality_reason)
+          ? answer.low_quality_reason
+          : '';
+        const showLowQualityQuestion = quality >= 1 && quality <= 2;
         const videoUrl = state.config.videos[index];
         const videoMimeType = getVideoMimeType(videoUrl);
         appEl.innerHTML = `
@@ -826,6 +843,15 @@ Promemoria per la configurazione di Formspree
                       </div>
                     `).join('')}
                   </div>
+                </fieldset>
+                <fieldset class="followup-fieldset" data-role="low-quality-reason" ${showLowQualityQuestion ? '' : 'hidden'}>
+                  <legend>Quali sono i motivi per cui lo ritieni poco buono?</legend>
+                  ${LOW_QUALITY_REASONS.map((option) => `
+                    <label class="option">
+                      <input type="radio" name="low-quality-reason" value="${option.value}" ${lowQualityReason === option.value ? 'checked' : ''}>
+                      ${option.label}
+                    </label>
+                  `).join('')}
                 </fieldset>
               </form>
             </div>
@@ -918,14 +944,44 @@ Promemoria per la configurazione di Formspree
         const starsContainer = form.querySelector('.stars');
         const qualityInputs = Array.from(form.querySelectorAll('input[name="quality"]'));
         const aiInputs = Array.from(form.querySelectorAll('input[name="is-ai"]'));
+        const reasonFieldset = form.querySelector('[data-role="low-quality-reason"]');
+        const reasonInputs = Array.from(form.querySelectorAll('input[name="low-quality-reason"]'));
 
         paintStars(starsContainer, quality);
+        updateReasonVisibility(quality, { preserveSelection: true });
 
         function updateNextState() {
           const answer = state.answers[index] || {};
           const aiAnswered = answer.is_ai === 'yes' || answer.is_ai === 'no';
           const qualityAnswered = typeof answer.quality === 'number' && answer.quality >= 1 && answer.quality <= 5;
-          nextBtn.disabled = !(aiAnswered && qualityAnswered);
+          const needsReason = qualityAnswered && answer.quality <= 2;
+          const reasonAnswered = !needsReason || (typeof answer.low_quality_reason === 'string' && answer.low_quality_reason.length > 0);
+          nextBtn.disabled = !(aiAnswered && qualityAnswered && reasonAnswered);
+        }
+
+        function updateReasonVisibility(currentQuality, options = {}) {
+          if (!reasonFieldset) {
+            return;
+          }
+          const { preserveSelection } = options;
+          const shouldShow = typeof currentQuality === 'number' && currentQuality >= 1 && currentQuality <= 2;
+          reasonFieldset.hidden = !shouldShow;
+          reasonInputs.forEach((input) => {
+            input.disabled = !shouldShow;
+          });
+          if (!shouldShow && !preserveSelection) {
+            let hadChecked = false;
+            reasonInputs.forEach((input) => {
+              if (input.checked) {
+                hadChecked = true;
+              }
+              input.checked = false;
+            });
+            const stored = state.answers[index] || {};
+            if (stored.low_quality_reason || hadChecked) {
+              saveAnswer(index, { low_quality_reason: null });
+            }
+          }
         }
 
         aiInputs.forEach((input) => {
@@ -941,12 +997,23 @@ Promemoria per la configurazione di Formspree
             const value = Number(event.target.value);
             paintStars(starsContainer, value);
             saveAnswer(index, { quality: value });
+            updateReasonVisibility(value);
             updateNextState();
           });
           input.addEventListener('keydown', (event) => handleStarKeydown(event, qualityInputs));
         });
 
         starsContainer.addEventListener('keydown', (event) => handleStarKeydown(event, qualityInputs));
+
+        reasonInputs.forEach((input) => {
+          input.addEventListener('change', (event) => {
+            if (!event.target.checked) {
+              return;
+            }
+            saveAnswer(index, { low_quality_reason: event.target.value });
+            updateNextState();
+          });
+        });
 
         backBtn.addEventListener('click', () => {
           if (index === 0) {
@@ -963,7 +1030,7 @@ Promemoria per la configurazione di Formspree
         nextBtn.addEventListener('click', async () => {
           const answer = state.answers[index] || {};
           if (!isAnswerComplete(answer)) {
-            setStatus('Rispondi a entrambe le domande prima di continuare.', 'error');
+            setStatus('Rispondi a tutte le domande prima di continuare.', 'error');
             updateNextState();
             return;
           }
@@ -990,7 +1057,9 @@ Promemoria per la configurazione di Formspree
         }
         const aiAnswered = answer.is_ai === 'yes' || answer.is_ai === 'no';
         const qualityAnswered = typeof answer.quality === 'number' && answer.quality >= 1 && answer.quality <= 5;
-        return aiAnswered && qualityAnswered;
+        const needsReason = qualityAnswered && answer.quality <= 2;
+        const reasonAnswered = !needsReason || (typeof answer.low_quality_reason === 'string' && answer.low_quality_reason.length > 0);
+        return aiAnswered && qualityAnswered && reasonAnswered;
       }
 
       function renderFinal() {
@@ -1062,6 +1131,18 @@ Promemoria per la configurazione di Formspree
           }
           current.quality = partial.quality;
         }
+        if (Object.prototype.hasOwnProperty.call(partial, 'low_quality_reason')) {
+          const value = partial.low_quality_reason;
+          const normalized = isValidLowQualityReason(value) ? value : undefined;
+          if (normalized !== current.low_quality_reason) {
+            changed = true;
+          }
+          if (normalized) {
+            current.low_quality_reason = normalized;
+          } else {
+            delete current.low_quality_reason;
+          }
+        }
         if (changed) {
           if (current.submissionId && dataAdapter) {
             dataAdapter.discard(current.submissionId);
@@ -1077,11 +1158,15 @@ Promemoria per la configurazione di Formspree
         const videoId = makeVideoId(index);
         const submissionId = makeSubmissionId(state.uid, videoId, answer);
         const timestamp = new Date().toISOString();
+        const reason = isValidLowQualityReason(answer.low_quality_reason)
+          ? answer.low_quality_reason
+          : null;
         const record = {
           user_code: state.uid,
           video_id: videoId,
           is_ai: answer.is_ai,
           quality_rating: answer.quality,
+          low_quality_reason: reason,
           timestamp,
           user_agent: navigator.userAgent,
           submission_id: submissionId
@@ -1222,7 +1307,10 @@ Promemoria per la configurazione di Formspree
       }
 
       function makeSubmissionId(uid, videoId, answer) {
-        const payload = `${uid}::${videoId}::${answer.is_ai}::${answer.quality}`;
+        const reason = isValidLowQualityReason(answer.low_quality_reason)
+          ? answer.low_quality_reason
+          : '';
+        const payload = `${uid}::${videoId}::${answer.is_ai}::${answer.quality}::${reason}`;
         const hash = hashString(payload);
         return `${uid}-${videoId}-${hash}`;
       }
@@ -1305,6 +1393,10 @@ Promemoria per la configurazione di Formspree
 
       function isNonEmptyString(value) {
         return typeof value === 'string' && value.trim().length > 0;
+      }
+
+      function isValidLowQualityReason(value) {
+        return typeof value === 'string' && LOW_QUALITY_REASONS.some((reason) => reason.value === value);
       }
 
       function escapeHtml(str) {
