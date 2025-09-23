@@ -4,7 +4,7 @@ window.CONFIG = {
   VIDEO_BASE_URL: 'https://aiworkshopmediaset.s3.eu-west-1.amazonaws.com/video/',
   videos: [
     'A1_SQUADRA_ANTIMAFIA.mp4',
-    'C1_COTTO_E_MANGIATO.mp4',
+    'B2_LIQUID_UNIVERSE.mp4',
     'C2_LA_CASA_FUERTE.mp4',
     'B2_LIQUID_UNIVERSE.mp4',
     'A3_CHICAGO_FIRE.mp4',
