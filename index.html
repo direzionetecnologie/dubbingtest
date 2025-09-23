@@ -83,27 +83,57 @@ Promemoria per la configurazione di Formspree
       text-align: center;
       max-width: 860px;
       margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(0.85rem, 2vh, 1.35rem);
+      padding-inline: clamp(0.25rem, 2vw, 1rem);
     }
 
     .welcome h1 {
-      margin-bottom: 1.75rem;
+      margin-bottom: 0;
     }
 
     .welcome p {
-      margin: 0 auto 1.5rem;
-      font-size: 1.05rem;
-      line-height: 1.75;
-      max-width: 640px;
+      margin: 0;
+      font-size: clamp(0.98rem, calc(1vw + 0.8rem), 1.05rem);
+      line-height: 1.6;
+      max-width: 620px;
     }
 
     .welcome button {
-      margin-top: 1.5rem;
+      margin-top: 0;
+      align-self: center;
+    }
+
+    .welcome .status {
+      margin-top: clamp(0.6rem, 2vh, 0.9rem);
+    }
+
+    body[data-route="welcome"] {
+      align-items: center;
+      padding-block: clamp(1.1rem, 4vh, 2.4rem);
+    }
+
+    body[data-route="welcome"] #app {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    body[data-route="welcome"] .card {
+      padding: clamp(2rem, calc(3vh + 1rem), 2.75rem);
+    }
+
+    body[data-route="welcome"] .welcome {
+      gap: clamp(0.75rem, 2vh, 1.2rem);
     }
 
     .logo {
       width: min(220px, 60vw);
-      margin: 0 auto 2rem;
-      padding: 1rem;
+      margin: 0 auto clamp(1rem, 2.5vh, 1.6rem);
+      padding: clamp(0.75rem, 2vh, 1rem);
       background: rgba(12, 18, 26, 0.85);
       border-radius: 28px;
       border: 1px solid rgba(132, 153, 188, 0.35);
@@ -419,6 +449,25 @@ Promemoria per la configurazione di Formspree
       box-shadow: none;
       transform: none;
       background: rgba(120, 150, 200, 0.35);
+    }
+
+    @media (max-height: 780px) {
+      body[data-route="welcome"] {
+        padding-block: clamp(0.75rem, 3vh, 1.5rem);
+      }
+
+      body[data-route="welcome"] .card {
+        padding: clamp(1.65rem, calc(2.5vh + 0.9rem), 2.2rem);
+      }
+
+      body[data-route="welcome"] .welcome p {
+        font-size: clamp(0.94rem, calc(1.6vh + 0.6rem), 1rem);
+        line-height: 1.5;
+      }
+
+      body[data-route="welcome"] .logo {
+        width: min(200px, 55vw);
+      }
     }
 
     @media (max-width: 900px) {
@@ -742,6 +791,7 @@ Promemoria per la configurazione di Formspree
 
       function render() {
         const route = getRoute();
+        document.body.dataset.route = route;
         if (route === 'error') {
           renderError();
         } else if (route === 'welcome') {
