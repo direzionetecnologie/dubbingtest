@@ -6,10 +6,10 @@ README
 - La coda offline salva le risposte non inviate per ogni sessione del partecipante in localStorage, ritenta automaticamente a ogni navigazione, quando la connessione torna attiva, e usa navigator.sendBeacon alla chiusura della scheda.
 - Condividi direttamente index.html con i partecipanti; non è richiesto alcun codice di accesso o parametro uid.
 
-Promemoria per la configurazione di Formspree
-- Crea un form su https://formspree.io e copia l'endpoint simile a https://formspree.io/f/XXXXYYYY.
-- Incolla quell'URL in CONFIG.FORM_ENDPOINT dentro config.js. Formspree accetta JSON quando l'header Accept è impostato su application/json.
-- Aggiungi dal pannello di Formspree le regole di notifica di cui hai bisogno.
+Promemoria per la configurazione di Formsubmit
+- Crea un modulo su https://formsubmit.co ed usa l'endpoint in formato https://formsubmit.co/ajax/tua-email.
+- Incolla quell'URL in CONFIG.FORM_ENDPOINT dentro config.js. Formsubmit accetta richieste JSON quando l'header Accept è impostato su application/json.
+- Aggiungi dal pannello di Formsubmit le regole di notifica di cui hai bisogno.
 -->
 <!DOCTYPE html>
 <html lang="it">
@@ -1633,6 +1633,13 @@ L'obiettivo è capire come il pubblico potrebbe percepire la qualità dell'adatt
           }
           if (payload && (payload.ok === false || payload.error)) {
             throw new Error(payload.error || 'Errore del server');
+          }
+          if (payload && Object.prototype.hasOwnProperty.call(payload, 'success')) {
+            const success = payload.success;
+            const isPositive = success === true || success === 'true';
+            if (!isPositive) {
+              throw new Error(payload.message || 'Errore del server');
+            }
           }
           return payload;
         }
